@@ -4976,7 +4976,7 @@ void endCmd(DmaCmd* pCmd)
 void cmdBindRenderTargets(
 	Cmd* pCmd, uint32_t renderTargetCount, RenderTarget** ppRenderTargets, RenderTarget* pDepthStencil,
 	const LoadActionsDesc* pLoadActions /* = NULL*/, uint32_t* pColorArraySlices, uint32_t* pColorMipSlices, uint32_t depthArraySlice,
-	uint32_t depthMipSlice)
+	uint32_t depthMipSlice, uint32_t viewMask, uint32_t correlationMask)
 {
 	ASSERT(pCmd);
 	ASSERT(pCmd->pDxCmdList);

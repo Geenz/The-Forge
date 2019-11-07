@@ -1675,6 +1675,8 @@ typedef struct SwapChainDesc
 	ClearValue mColorClearValue;
 	/// Set whether swap chain will be presented using vsync
 	bool mEnableVsync;
+	/// Enable stereo rendering.
+	bool mEnableStereo;
 } SwapChainDesc;
 
 typedef struct SwapChain
@@ -2024,7 +2026,7 @@ API_INTERFACE void FORGE_CALLCONV removeRasterizerState(RasterizerState* pRaster
 // command buffer functions
 API_INTERFACE void FORGE_CALLCONV beginCmd(Cmd* p_cmd);
 API_INTERFACE void FORGE_CALLCONV endCmd(Cmd* p_cmd);
-API_INTERFACE void FORGE_CALLCONV cmdBindRenderTargets(Cmd* p_cmd, uint32_t render_target_count, RenderTarget** pp_render_targets, RenderTarget* p_depth_stencil, const LoadActionsDesc* loadActions, uint32_t* pColorArraySlices, uint32_t* pColorMipSlices, uint32_t depthArraySlice, uint32_t depthMipSlice);
+API_INTERFACE void FORGE_CALLCONV cmdBindRenderTargets(Cmd* p_cmd, uint32_t render_target_count, RenderTarget** pp_render_targets, RenderTarget* p_depth_stencil, const LoadActionsDesc* loadActions, uint32_t* pColorArraySlices, uint32_t* pColorMipSlices, uint32_t depthArraySlice, uint32_t depthMipSlice, uint32_t viewMask = 0, uint32_t correlationMask = 0);
 API_INTERFACE void FORGE_CALLCONV cmdSetViewport(Cmd* p_cmd, float x, float y, float width, float height, float min_depth, float max_depth);
 API_INTERFACE void FORGE_CALLCONV cmdSetScissor(Cmd* p_cmd, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 API_INTERFACE void FORGE_CALLCONV cmdBindPipeline(Cmd* p_cmd, Pipeline* p_pipeline);

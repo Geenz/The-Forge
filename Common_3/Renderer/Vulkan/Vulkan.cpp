@@ -399,6 +399,10 @@ const char* gVkWantedDeviceExtensions[] =
 #ifdef ENABLE_RAYTRACING
 	VK_NV_RAY_TRACING_EXTENSION_NAME,
 #endif
+
+#ifdef VK_KHR_multiview
+	VK_KHR_MULTIVIEW_EXTENSION_NAME,
+#endif
 	/************************************************************************/
 	/************************************************************************/
 };
@@ -646,6 +650,8 @@ typedef struct RenderPassDesc
 	TinyImageFormat     	mDepthStencilFormat;
 	LoadActionType        mLoadActionDepth;
 	LoadActionType        mLoadActionStencil;
+	uint32_t				mViewMask;
+	uint32_t				mCorrelationMask;
 } RenderPassDesc;
 
 typedef struct RenderPass
@@ -773,6 +779,17 @@ static void add_render_pass(Renderer* pRenderer, const RenderPassDesc* pDesc, Re
 	create_info.pSubpasses = &subpass;
 	create_info.dependencyCount = 0;
 	create_info.pDependencies = NULL;
+
+	if (pDesc->mViewMask != 0) {
+		// Per the Vulkan spec, if the view mask is greater than zero, it should be assumed that multiview is enabled.
+		DECLARE_ZERO(VkRenderPassMultiviewCreateInfo, multiview_info);
+		multiview_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_MULTIVIEW_CREATE_INFO;
+		multiview_info.subpassCount = 1;
+		multiview_info.pViewMasks = &pDesc->mViewMask;
+		multiview_info.correlationMaskCount = 1;
+		multiview_info.pCorrelationMasks = &pDesc->mCorrelationMask;
+		create_info.pNext = &multiview_info;
+	}
 
 	VkResult vk_res = vkCreateRenderPass(pRenderer->pVkDevice, &create_info, NULL, &(pRenderPass->pRenderPass));
 	ASSERT(VK_SUCCESS == vk_res);
@@ -3035,6 +3052,13 @@ void addSwapChain(Renderer* pRenderer, const SwapChainDesc* pDesc, SwapChain** p
 		pSwapChain->pPresentQueue = VK_NULL_HANDLE;
 	}
 
+
+	uint32_t swap_image_layers = 1;
+	// Make sure the number of array images are at minimum 1.
+	if (pDesc->mEnableStereo) {
+		swap_image_layers = 2;
+	}
+
 	DECLARE_ZERO(VkSwapchainCreateInfoKHR, swapChainCreateInfo);
 	swapChainCreateInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	swapChainCreateInfo.pNext = NULL;
@@ -3049,7 +3073,7 @@ void addSwapChain(Renderer* pRenderer, const SwapChainDesc* pDesc, SwapChain** p
 	swapChainCreateInfo.imageFormat = surface_format.format;
 	swapChainCreateInfo.imageColorSpace = surface_format.colorSpace;
 	swapChainCreateInfo.imageExtent = extent;
-	swapChainCreateInfo.imageArrayLayers = 1;
+	swapChainCreateInfo.imageArrayLayers = swap_image_layers;
 	swapChainCreateInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
 	swapChainCreateInfo.imageSharingMode = sharing_mode;
 	swapChainCreateInfo.queueFamilyIndexCount = queue_family_index_count;
@@ -5408,7 +5432,7 @@ void endCmd(Cmd* pCmd)
 void cmdBindRenderTargets(
 	Cmd* pCmd, uint32_t renderTargetCount, RenderTarget** ppRenderTargets, RenderTarget* pDepthStencil,
 	const LoadActionsDesc* pLoadActions /* = NULL*/, uint32_t* pColorArraySlices, uint32_t* pColorMipSlices, uint32_t depthArraySlice,
-	uint32_t depthMipSlice)
+	uint32_t depthMipSlice, uint32_t viewMask, uint32_t correlationMask)
 {
 	ASSERT(pCmd);
 	ASSERT(VK_NULL_HANDLE != pCmd->pVkCmdBuf);
@@ -5460,6 +5484,10 @@ void cmdBindRenderTargets(
 		frameBufferHash = eastl::mem_hash<uint32_t>()(&depthArraySlice, 1, frameBufferHash);
 	if (depthMipSlice != -1)
 		frameBufferHash = eastl::mem_hash<uint32_t>()(&depthMipSlice, 1, frameBufferHash);
+	if (viewMask != 0)
+		frameBufferHash = eastl::mem_hash<uint32_t>()(&viewMask, 1, frameBufferHash);
+	if (correlationMask != 0)
+		frameBufferHash = eastl::mem_hash<uint32_t>()(&correlationMask, 1, frameBufferHash);
 
 	SampleCount sampleCount = renderTargetCount ? ppRenderTargets[0]->mDesc.mSampleCount : pDepthStencil->mDesc.mSampleCount;
 
@@ -5498,6 +5526,8 @@ void cmdBindRenderTargets(
 		renderPassDesc.pLoadActionsColor = pLoadActions ? pLoadActions->mLoadActionsColor : NULL;
 		renderPassDesc.mLoadActionDepth = pLoadActions ? pLoadActions->mLoadActionDepth : LOAD_ACTION_DONTCARE;
 		renderPassDesc.mLoadActionStencil = pLoadActions ? pLoadActions->mLoadActionStencil : LOAD_ACTION_DONTCARE;
+		renderPassDesc.mViewMask = viewMask;
+		renderPassDesc.mCorrelationMask = correlationMask;
 		add_render_pass(pCmd->pRenderer, &renderPassDesc, &pRenderPass);
 
 		// No need of a lock here since this map is per thread
